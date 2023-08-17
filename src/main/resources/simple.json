@@ -1,0 +1,52 @@
+{
+  "refArray": [
+    {
+      "code": "TRST_00002",
+      "recordList": [
+        {
+          "internalID": "1",
+          "externalID": 2,
+          "heritageID": 1,
+          "parentId": "2",
+          "value": "201",
+          "version": "1",
+          "isActive": true,
+          "startDate": "2121",
+          "endDate": "2222",
+          "extFields": [
+            {
+              "name": "date",
+              "type": 4,
+              "value": "2022-05-25T23:59:59Z"
+            },
+            {
+              "name": "currency",
+              "type": 1,
+              "value": "RUB"
+            },
+            {
+              "name": "tooling",
+              "type": 1,
+              "value": "FTP"
+            },
+            {
+              "name": "basisCode",
+              "type": 2,
+              "value": "405"
+            },
+            {
+              "name": "rate",
+              "type": 2,
+              "value": "3.10"
+            },
+            {
+              "name": "comment",
+              "type": 1,
+              "value": "Ставки утверждены Решением ФК от 12/03/2021"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
