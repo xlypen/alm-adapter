@@ -1,6 +1,5 @@
 package ru.tsc.almadapter.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import ru.tsc.almadapter.entity.DataEntity;
@@ -91,36 +90,6 @@ public class DataService {
         return existingDataEntity;
     }
 }
-
-
-//    public void processJson(Root root) {
-//
-//
-//
-//        // // Шаг 1: Создаем список идентификаторов из entitiesFromRoot
-//        List<String> externalIdsFromRoot = rootMapper.rootToDataEntities(root).stream()
-//                .map(DataEntity::getExternalId)
-//                .collect(Collectors.toList());
-//        // Получаем список сущностей в бд
-//        List<DataEntity> entitiesSetFromAlmInDb = dataRepository.findAll();
-//
-//        // Получаем список сущностей из рута
-//        List<DataEntity> entitiesFromRoot = rootMapper.rootToDataEntities(root);
-//
-//        // Шаг 2 и 3: Итерируемся по entitiesSetFromAlmInDb и проверяем externalId
-//        List<DataEntity> entitiesToDelete = new ArrayList<>();
-//        for (DataEntity entity : entitiesSetFromAlmInDb) {
-//            if (!externalIdsFromRoot.contains(entity.getExternalId())) {
-//                entitiesToDelete.add(entity);
-//            }
-//        }
-//
-//        // Шаг 4: Удаляем найденные сущности
-//        dataRepository.deleteAll(entitiesToDelete);
-//        // Сохраняем сущности из джейсона
-//        dataRepository.saveAll(entitiesFromRoot);
-//
-//    }
 
 
 
