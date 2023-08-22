@@ -5,7 +5,7 @@ import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import ru.tsc.almadapter.dto.Record;
 import ru.tsc.almadapter.dto.Root;
-import ru.tsc.almadapter.entity.DataEntity;
+import ru.tsc.almadapter.entity.TmpDataEntity;
 
 import java.util.Collections;
 import java.util.List;
@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 public interface RootMapper {
 
 
-    default List<DataEntity> rootToDataEntities(Root root) {
+    default List<TmpDataEntity> rootToDataEntities(Root root) {
         if (root == null || root.getRefArray() == null) {
             return Collections.emptyList();
         }
@@ -40,7 +40,7 @@ public interface RootMapper {
     @Mapping(target = "externalId", source = "externalID")
     @Mapping(target = "heritageId", source = "heritageID")
     @Mapping(target = "recordId", ignore = true)
-    DataEntity recordToDataEntity(Record record);
+    TmpDataEntity recordToDataEntity(Record record);
 
     @Mapping(target = "internalID", source = "valueId")
     @Mapping(target = "externalID", source = "externalId")
@@ -52,10 +52,10 @@ public interface RootMapper {
     @Mapping(target = "startDate", source = "startDate")
     @Mapping(target = "endDate", source = "endDate")
     @Mapping(target = "extFields", source = "extValues.extFields")
-    Record dataEntityToRecord(DataEntity dataEntity);
+    Record dataEntityToRecord(TmpDataEntity tmpDataEntity);
 
     @Mapping(target = "externalId", ignore = true)
         // исключаем externalId из обновления
-    void updateEntityFromRecord(@MappingTarget DataEntity existingEntity, Record record);
+    void updateEntityFromRecord(@MappingTarget TmpDataEntity existingEntity, Record record);
 }
 

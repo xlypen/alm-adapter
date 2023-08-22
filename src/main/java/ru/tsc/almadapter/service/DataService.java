@@ -1,95 +1,103 @@
 package ru.tsc.almadapter.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import ru.tsc.almadapter.entity.DataEntity;
+import ru.tsc.almadapter.entity.TmpDataEntity;
+import ru.tsc.almadapter.entity.PreStage;
 import ru.tsc.almadapter.dto.*;
-import ru.tsc.almadapter.repository.DataRepository;
+import ru.tsc.almadapter.repository.TmpDataRepository;
+import ru.tsc.almadapter.repository.PreStageRepository;
 
+import javax.persistence.EntityManager;
+import javax.persistence.Query;
 import java.sql.Timestamp;
-import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class DataService {
 
-    private final DataRepository dataRepository;
+    private final TmpDataRepository tmpDataRepository;
+    private final PreStageRepository preStageRepository;
+    private final EntityManager entityManager;
+    private final ObjectMapper objectMapper;
 
-    private DataEntity convertJsonToDataEntity(Record record) {
-        DataEntity dataEntity = new DataEntity();
+    // Конвертация Record в TmpDataEntity
+    private TmpDataEntity convertJsonToDataEntity(Record record) {
+        TmpDataEntity tmpDataEntity = new TmpDataEntity();
 
-        dataEntity.setInternalId(Integer.parseInt(record.internalID));
-        dataEntity.setExternalId(String.valueOf(record.externalID));
-        dataEntity.setHeritageId(String.valueOf(record.heritageID));
-        dataEntity.setParentId(Long.valueOf(record.parentId));
-        dataEntity.setValue(record.value);
-        dataEntity.setVersion(Long.parseLong(record.version));
-        dataEntity.setIsActive(record.isActive);
-        dataEntity.setDateStart(Timestamp.valueOf(record.startDate));
-        dataEntity.setDateEnd(Timestamp.valueOf(record.endDate));
+        tmpDataEntity.setExternalId(String.valueOf(record.externalID));
+        tmpDataEntity.setHeritageId(String.valueOf(record.heritageID));
+        tmpDataEntity.setParentId(Long.valueOf(record.parentId));
+        tmpDataEntity.setValue(record.value);
+        tmpDataEntity.setVersion(Long.parseLong(record.version));
+        tmpDataEntity.setIsActive(record.isActive);
+        tmpDataEntity.setDateStart(Timestamp.valueOf(record.startDate));
+        tmpDataEntity.setDateEnd(Timestamp.valueOf(record.endDate));
 
         ExtValues extValues = new ExtValues();
         extValues.setExtFields(record.extFields);
-        dataEntity.setExtValues(extValues);
+        tmpDataEntity.setExtValues(extValues);
 
-        return dataEntity;
+        return tmpDataEntity;
     }
 
-    public DataEntity saveFromJson(Root root) {
-        DataEntity dataEntity = convertJsonToDataEntity(root.refArray.get(0).recordList.get(0));
-        return dataRepository.save(dataEntity);
-    }
-
-    public void processAndSaveRecords(Root root) {
-        List<DataEntity> existingDataEntities = dataRepository.findAll();
-
-        // Создаем множество для хранения внешних ID из JSON
-        Set<String> jsonExternalIds = new HashSet<>();
+    // Процесс сохранения во временную таблицу
+    private void processAndSaveToTmpData(Root root) {
         for (RefArrayItem refArrayItem : root.refArray) {
             for (Record record : refArrayItem.recordList) {
-                jsonExternalIds.add(String.valueOf(record.externalID));
-                DataEntity dataEntity = convertJsonToDataEntity(record);
-
-                // Поиск записи по externalID
-                Optional<DataEntity> existingDataEntity = dataRepository.findByExternalId(dataEntity.getExternalId());
-
-                if (existingDataEntity.isPresent()) {
-                    // Обновить запись
-                    DataEntity updatedDataEntity = updateExistingDataEntity(existingDataEntity.get(), dataEntity);
-                    dataRepository.save(updatedDataEntity);
-                } else {
-                    // Создать новую запись
-                    dataRepository.save(dataEntity);
-                }
-            }
-        }
-
-        // Деактивация записей, которые есть в базе, но не пришли в JSON
-        for (DataEntity existingDataEntity : existingDataEntities) {
-            if (!jsonExternalIds.contains(existingDataEntity.getExternalId())) {
-                existingDataEntity.setIsActive(false);
-                dataRepository.save(existingDataEntity);
+                TmpDataEntity tmpDataEntity = convertJsonToDataEntity(record);
+                tmpDataRepository.save(tmpDataEntity);
             }
         }
     }
 
-    private DataEntity updateExistingDataEntity(DataEntity existingDataEntity, DataEntity newDataEntity) {
-        // Здесь логика обновления существующей записи
-        existingDataEntity.setValue(newDataEntity.getValue());
-        existingDataEntity.setHeritageId(newDataEntity.getHeritageId());
-        existingDataEntity.setParentId(newDataEntity.getParentId());
-        existingDataEntity.setDateStart(newDataEntity.getDateStart());
-        existingDataEntity.setDateEnd(newDataEntity.getDateEnd());
-        existingDataEntity.setIsActive(newDataEntity.getIsActive());
-        existingDataEntity.setVersion(newDataEntity.getVersion());
-        existingDataEntity.setExtValues(newDataEntity.getExtValues());
+    // Получение максимального internalId
+    public Long getMaxInternalIdByDictionaryId(Long dictionaryId) {
+        String sql = "SELECT * FROM adapter_get_max_internal_id_by_dictionary_id(:dictionaryId)";
+        Query query = entityManager.createNativeQuery(sql);
+        query.setParameter("dictionaryId", dictionaryId);
+        Object result = query.getSingleResult();
+        return result == null ? 0L : Long.parseLong(result.toString());
+    }
 
-        return existingDataEntity;
+    // Процесс сохранения в таблицу preStage
+    public void processAndSaveToPreStage(Long dictionaryId) throws JsonProcessingException {
+        List<TmpDataEntity> existingDataEntities = tmpDataRepository.findAll();
+        Long maxInternalId = getMaxInternalIdByDictionaryId(dictionaryId);
+
+        LinkedList<TmpDataEntity> orderedList = new LinkedList<>();
+
+        // Добавляем записи с ExternalId в начало списка
+        for (TmpDataEntity entity : existingDataEntities) {
+            if (entity.getExternalId() != null && !entity.getExternalId().isEmpty()) {
+                orderedList.addFirst(entity);
+            } else {
+                orderedList.addLast(entity);
+            }
+        }
+
+        for (TmpDataEntity tmpDataEntity : orderedList) {
+            tmpDataEntity.setInternalId(Math.toIntExact(++maxInternalId));
+            saveDataToPreStage(tmpDataEntity, dictionaryId);
+        }
+    }
+
+    // Сохранение данных в preStage
+    private void saveDataToPreStage(TmpDataEntity tmpDataEntity, Long dictionaryId) throws JsonProcessingException {
+        PreStage preStage = new PreStage();
+        preStage.setDictionaryId(dictionaryId);
+        preStage.setJsonData(objectMapper.writeValueAsString(tmpDataEntity));
+        preStageRepository.save(preStage);
+    }
+
+    // Главный метод, который объединяет все шаги и может быть вызван из контроллера
+    public void processAll(Root root, Long dictionaryId) throws JsonProcessingException {
+        processAndSaveToTmpData(root);
+        processAndSaveToPreStage(dictionaryId);
     }
 }
-
-
-

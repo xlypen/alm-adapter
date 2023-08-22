@@ -23,12 +23,12 @@ import java.sql.Timestamp;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "data")
+@Table(name = "tmp_data")
 @TypeDef(name = "jsonb", typeClass = JsonBinaryType.class)
 @TypeDef(name = "json", typeClass = JsonBinaryType.class)
 @Getter
 @Setter
-public class DataEntity {
+public class TmpDataEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
