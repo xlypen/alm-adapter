@@ -15,7 +15,6 @@ import javax.persistence.Query;
 import java.sql.Timestamp;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -48,12 +47,14 @@ public class DataService {
 
     // Процесс сохранения во временную таблицу
     private void processAndSaveToTmpData(Root root) {
+        List<TmpDataEntity> entitiesToSave = new LinkedList<>();
         for (RefArrayItem refArrayItem : root.refArray) {
             for (Record record : refArrayItem.recordList) {
                 TmpDataEntity tmpDataEntity = convertJsonToDataEntity(record);
-                tmpDataRepository.save(tmpDataEntity);
+                entitiesToSave.add(tmpDataEntity);
             }
         }
+        tmpDataRepository.saveAll(entitiesToSave);  // Батчевое сохранение
     }
 
     // Получение максимального internalId
@@ -81,10 +82,16 @@ public class DataService {
             }
         }
 
+        List<PreStage> preStagesToSave = new LinkedList<>();
+
         for (TmpDataEntity tmpDataEntity : orderedList) {
             tmpDataEntity.setInternalId(Math.toIntExact(++maxInternalId));
-            saveDataToPreStage(tmpDataEntity, dictionaryId);
+            PreStage preStage = createPreStage(tmpDataEntity, dictionaryId);
+            preStagesToSave.add(preStage);
         }
+
+        preStageRepository.saveAll(preStagesToSave);  // Батчевое сохранение
+        clearTmpData();
     }
 
     // Сохранение данных в preStage
@@ -100,4 +107,16 @@ public class DataService {
         processAndSaveToTmpData(root);
         processAndSaveToPreStage(dictionaryId);
     }
+
+    private void clearTmpData() {
+        tmpDataRepository.deleteAll();
+    }
+
+    private PreStage createPreStage(TmpDataEntity tmpDataEntity, Long dictionaryId) throws JsonProcessingException {
+        PreStage preStage = new PreStage();
+        preStage.setDictionaryId(dictionaryId);
+        preStage.setJsonData(objectMapper.writeValueAsString(tmpDataEntity));
+        return preStage;
+    }
+
 }
